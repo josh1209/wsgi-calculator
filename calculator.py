@@ -41,17 +41,66 @@ To submit your homework:
 
 """
 
+import re
+import traceback
+
+def main():
+    body = ['<h1>The Calculator</h1>', '<ul>']
+    body.append("<html>Here's how to use this page...</html>")
+    body.append('<li>To add, use the "add" page, followed by the two numbers you want to add. Ex: /add/2/4 will yield "6".</li>')
+    body.append('<li>For subtraction, use the "subtract" page. Ex: /subtract/10/5 will yield "5".</li>')
+    body.append('<li>For multiplication, use the "multiply" page. Ex: /multiply/3/5 will yield "15".</li>')
+    body.append('<li>For division, use the "divide" page. Ex: /divide/20/2 will yield "10".</li>')
+    
+    return '\n'.join(body)
 
 def add(*args):
     """ Returns a STRING with the sum of the arguments """
 
     # TODO: Fill sum with the correct value, based on the
     # args provided.
-    sum = "0"
+    digit1, digit2 = args
+    sum = int(digit1) + int(digit2)
 
-    return sum
+    page = ['<h1>Summation</h1>']
+    page.append(f'<html>{digit1} plus {digit2} equals {sum}')
+
+    return '\n'.join(page)
 
 # TODO: Add functions for handling more arithmetic operations.
+
+def subtract(*args):
+    """ Returns a STRING with the difference of the arguments """
+    
+    digit1, digit2 = args
+    difference = int(digit1) - int(digit2)
+
+    page = ['<h1>Subtraction</h1>']
+    page.append(f'<html>{digit1} minus {digit2} equals {difference}')
+
+    return '\n'.join(page)
+    
+def multiply(*args):
+    """ Returns a STRING with the arguments multiplied together """
+    
+    digit1, digit2 = args
+    multiplied = int(digit1) * int(digit2)
+
+    page = ['<h1>Multiplication</h1>']
+    page.append(f'<html>{digit1} times {digit2} equals {multiplied}')
+
+    return '\n'.join(page)
+    
+def divide(*args):
+    """ Returns a STRING with the arguments divided by each other """
+    
+    digit1, digit2 = args
+    divided = int(digit1) / int(digit2)
+
+    page = ['<h1>Division</h1>']
+    page.append(f'<html>{digit1} divided by {digit2} equals {divided}')
+
+    return '\n'.join(page)
 
 def resolve_path(path):
     """
@@ -63,8 +112,27 @@ def resolve_path(path):
     # examples provide the correct *syntax*, but you should
     # determine the actual values of func and args using the
     # path.
-    func = add
-    args = ['25', '32']
+    
+    funcs = {
+        '': main,
+        'add': add,
+        'subtract': subtract,
+        'multiply': multiply,
+        'divide': divide
+    }
+
+    path = path.strip('/').split('/')
+    
+    func_name = path[0]
+    args = path[1:]
+    
+    try:
+        func = funcs[func_name]
+    except KeyError:
+        raise NameError
+
+#    func = add
+#    args = ['25', '32']
 
     return func, args
 
@@ -76,9 +144,32 @@ def application(environ, start_response):
     #
     # TODO (bonus): Add error handling for a user attempting
     # to divide by zero.
-    pass
+    headers = [('Content-type', 'text/html')]
+    try:
+        path = environ.get('PATH_INFO', None)
+        if path is None:
+            raise NameError
+        func, args = resolve_path(path)
+        body = func(*args)
+        status = '200 OK'
+    except NameError:
+        status = '500 Internal Server Error'
+        body = '<h1> Not Found</h1>'
+    except ZeroDivisionError:
+        status = '500 Internal Server Error'
+        body = '<h1> Cannot Divide by Zero</h1>'
+    except Exception:
+        status = '500 Internal Server Error'
+        body = '<h1> Internal Server Error</h1>'
+        print(traceback.format_exc())
+    finally:
+        headers.append(("Content-length", str(len(body))))
+        start_response(status, headers)
+        return [body.encode('utf8')]
 
 if __name__ == '__main__':
     # TODO: Insert the same boilerplate wsgiref simple
     # server creation that you used in the book database.
-    pass
+    from wsgiref.simple_server import make_server
+    srv = make_server('localhost', 8080, application)
+    srv.serve_forever()
